@@ -60,11 +60,8 @@ if ! [[ "${RESOLVE_LICENSE_AGREE,,}" =~ ^(y|yes)$ || "${RESOLVE_LICENSES_AGREE,,
     fi
 fi
 
-# if RESOLVE_NO_PIPEWIRE set, use that.  Otherwise check.
-
-if [ ! -z "${RESOLVE_NO_PIPEWIRE}" ]; then
-   export NO_PIPEWIRE=1
-elif `pgrep pipewire &>/dev/null` ; then
+# PipeWire is disabled by default for Kali; set RESOLVE_NO_PIPEWIRE=0 to opt in.
+if [[ "${RESOLVE_NO_PIPEWIRE,,}" == "0" ]]; then
    export NO_PIPEWIRE=0
 else
    export NO_PIPEWIRE=1
@@ -111,10 +108,16 @@ fi
 echo "Building the resolve:${TAG} image..."
 
 ${CONTAINER_BUILD} -t "resolve:${TAG}" -t "resolve" --build-arg ARCH=`uname -m` --build-arg ZIPNAME="${ZIPNAME}" --build-arg BASE_IMAGE="${BASE_IMAGE}" --build-arg NVIDIA_VERSION="${NVIDIA_VERSION}" --build-arg USER_ID="${USER_ID}" --build-arg NO_PIPEWIRE="${NO_PIPEWIRE}" --build-arg BUILD_X264_ENCODER_PLUGIN="${BUILD_X264_ENCODER_PLUGIN}"
+BUILD_STATUS=$?
 
 # remove any context link
 if [ -f "${CONTEXT_ZIP}" ]; then
    rm -f "${CONTEXT_ZIP}"
+fi
+
+if [ "${BUILD_STATUS}" -ne 0 ]; then
+   echo "Build of resolve:${TAG} failed (exit code ${BUILD_STATUS})." >&2
+   exit "${BUILD_STATUS}"
 fi
 
 echo -e "Build of resolve:${TAG} is complete.  To run resolve, try:\n\n./resolve.sh\n"

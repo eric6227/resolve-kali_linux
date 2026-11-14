@@ -16,7 +16,7 @@ FROM ${BASE_IMAGE}
 
 ARG ARCH=x86_64
 ARG NVIDIA_VERSION=575.64.03
-ARG NO_PIPEWIRE=0
+ARG NO_PIPEWIRE=1
 ARG ZIPNAME
 ARG BUILD_X264_ENCODER_PLUGIN=0
 
@@ -33,14 +33,14 @@ RUN if [[ `dnf list libxcrypt-compat` == *libxcrypt-compat* ]]; then export EXTR
        && export NVIDIA_VERSION=$NVIDIA_VERSION \
        && export ARCH=$ARCH \
        && dnf update --refresh -y \
-       && dnf install dnf-plugins-core xorg-x11-server-Xorg libXcursor unzip alsa-lib librsvg2 libGLU sudo module-init-tools libgomp xcb-util python312 mesa-dri-drivers -y \
+       && dnf install dnf-plugins-core xorg-x11-server-Xorg libXcursor libXt unzip alsa-lib librsvg2 libGLU sudo module-init-tools libgomp xcb-util xcb-util-keysyms xcb-util-wm ocl-icd libxkbcommon-x11 python312 mesa-dri-drivers -y \
        && dnf install epel-release -y && dnf install xcb-util-cursor libglvnd-devel -y \
        && if [ ! -z "${EXTRA_PACKS}" ]; then dnf install ${EXTRA_PACKS} -y ; fi \
        && if [[ "${NO_PIPEWIRE}" == 0 ]] ; then \
-             dnf install libXi libXt libXtst procps dbus-x11 libSM pipewire libcurl-devel \
+             dnf install libXi libXtst procps dbus-x11 libSM pipewire libcurl-devel \
                  apr apr-util libXinerama libxkbcommon libxkbcommon-x11 libXrandr xcb-util-image xcb-util-keysyms xcb-util-renderutil xcb-util-wm \
                  libglvnd-opengl pulseaudio-libs nss libXcomposite libXdamage -y \
-             && curl https://vault.centos.org/8-stream/AppStream/x86_64/os/Packages/alsa-plugins-pulseaudio-1.1.9-1.el8.x86_64.rpm -o /tmp/alsa-plugins-pulseaudio-1.1.9-1.el8.x86_64.rpm \
+             && curl -fL https://archive.kernel.org/centos-vault/8-stream/AppStream/x86_64/os/Packages/alsa-plugins-pulseaudio-1.1.9-1.el8.x86_64.rpm -o /tmp/alsa-plugins-pulseaudio-1.1.9-1.el8.x86_64.rpm \
              && dnf -y remove pipewire-alsa \
              && rpm -i --nodeps --replacefiles /tmp/alsa-plugins-pulseaudio-1.1.9-1.el8.x86_64.rpm \
              && PINNEDSHA=`/usr/bin/sha256sum /tmp/alsa-plugins-pulseaudio-1.1.9-1.el8.x86_64.rpm` \
@@ -49,8 +49,10 @@ RUN if [[ `dnf list libxcrypt-compat` == *libxcrypt-compat* ]]; then export EXTR
           else \
              dnf install alsa-plugins-pulseaudio -y ; \
           fi \
-       && curl https://us.download.nvidia.com/XFree86/Linux-${ARCH}/${NVIDIA_VERSION}/NVIDIA-Linux-${ARCH}-${NVIDIA_VERSION}.run -o /tmp/NVIDIA-Linux-${ARCH}-${NVIDIA_VERSION}.run \
+       && curl -fL https://download.nvidia.com/XFree86/Linux-${ARCH}/${NVIDIA_VERSION}/NVIDIA-Linux-${ARCH}-${NVIDIA_VERSION}.run -o /tmp/NVIDIA-Linux-${ARCH}-${NVIDIA_VERSION}.run \
        && bash /tmp/NVIDIA-Linux-${ARCH}-${NVIDIA_VERSION}.run --no-kernel-module --no-kernel-module-source --run-nvidia-xconfig --no-backup --no-questions --accept-license --ui=none \
+       && command -v nvidia-smi >/dev/null \
+       && ldconfig -p | grep -q 'libcuda.so.1' \
        && rm -f /tmp/NVIDIA-Linux-${ARCH}-${NVIDIA_VERSION}.run \
        && rm -rf /var/cache/yum/* \
        && dnf remove -y epel-release dnf-plugins-core libcurl-devel \
@@ -71,6 +73,8 @@ COPY "${ZIPNAME}" /tmp/DaVinci_Resolve_Linux.zip
 
 # Note: for Arch & Manjaro distributions, we need to work around a potential AppImage "magic bytes" bug that may be in the run file
 # see https://github.com/fat-tire/resolve/issues/16
+
+ENV SKIP_PACKAGE_CHECK=1
 
 RUN cd /tmp \
     && unzip *DaVinci_Resolve_Linux.zip \

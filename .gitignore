@@ -4,3 +4,5 @@
 **/volumes/*
 **/.DS_Store
 *.zip
+*.run
+*.html

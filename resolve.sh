@@ -57,6 +57,7 @@ export RESOLVE_COMMON_DATA_DIR=${MOUNTS_DIRNAME}/BlackmagicDesign
 export RESOLVE_MEDIA=${MOUNTS_DIRNAME}/Media  # for raw footage (Ubuntu ~/Videos)
 export RESOLVE_FAIRLIGHT_DIR=${MOUNTS_DIRNAME}/Fairlight
 export RESOLVE_EXTRAS_DIR=${MOUNTS_DIRNAME}/Extras
+export RESOLVE_IMMERSIVE=${MOUNTS_DIRNAME}/Immersive
 
 # make sure expected MOUNTS are here.
 mkdir -p ${RESOLVE_MOUNTS_PATH}/${RESOLVE_HOMEDIR}/.local/share/fonts
@@ -69,6 +70,7 @@ mkdir -p ${RESOLVE_MOUNTS_PATH}/${RESOLVE_COMMON_DATA_DIR}
 mkdir -p ${RESOLVE_MOUNTS_PATH}/${RESOLVE_MEDIA}
 mkdir -p ${RESOLVE_MOUNTS_PATH}/${RESOLVE_FAIRLIGHT_DIR}
 mkdir -p ${RESOLVE_MOUNTS_PATH}/${RESOLVE_EXTRAS_DIR}
+mkdir -p ${RESOLVE_MOUNTS_PATH}/${RESOLVE_IMMERSIVE}
 mkdir -p "${HOME}/.local/share/fonts"
 
 # Check for a machine-id file. If one doesn't exist, generate one derived from
@@ -108,7 +110,7 @@ fi
 echo "The container's /etc/machine-id  : "`cat ${RESOLVE_MOUNTS_PATH}/mounts/container-machine-id`
 
 if [ -z "${RESOLVE_NETWORK}" ]; then
-   export NET_DRIVER="--network=none"
+   export NET_DRIVER="--network=bridge"
 else
    export NET_DRIVER="--network=${RESOLVE_NETWORK}"
 fi
@@ -142,6 +144,7 @@ echo "  /var/BlackmagicDesign/DaVinci Resolve -> ${RESOLVE_MOUNTS_PATH}/${RESOLV
 echo "  /opt/resolve/Media                    -> ${RESOLVE_MOUNTS_PATH}/${RESOLVE_MEDIA}"
 echo "  /opt/resolve/Fairlight                -> ${RESOLVE_MOUNTS_PATH}/${RESOLVE_FAIRLIGHT_DIR}"
 echo "  /opt/resolve/Extras                   -> ${RESOLVE_MOUNTS_PATH}/${RESOLVE_EXTRAS_DIR}"
+echo "  /opt/resolve/Immersive                -> ${RESOLVE_MOUNTS_PATH}/${RESOLVE_IMMERSIVE}"
 
 if [[ "${SRC_CNT}" -ne "0" ]]; then
   echo "${SRC_CNT} extra custom mount(s):"
@@ -187,8 +190,8 @@ done
 
 # enable host's system fonts (put it in $HOME/.local/share/fonts in container)
 
-if ! [ -z ${RESOLVE_ENABLE_HOST_SYSTEM_FONTS} ]; then
-   export MOUNT_SYSTEM_FONTS+=( --mount type=bind,source=/usr/share/fonts,target=/home/resolve/.local/share/fonts )
+if [[ "${RESOLVE_ENABLE_HOST_SYSTEM_FONTS:-1}" != "0" && -d /usr/share/fonts ]]; then
+   export MOUNT_SYSTEM_FONTS+=( --mount type=bind,source=/usr/share/fonts,target=/home/resolve/.local/share/fonts,readonly )
 fi
 
 # mint does not set XDG_RUNTIME_DIR, so set it if unset.
@@ -250,6 +253,7 @@ set -x
      --mount type=bind,source=${RESOLVE_MOUNTS_PATH}/${RESOLVE_MEDIA},target=/opt/resolve/Media \
      --mount type=bind,source=${RESOLVE_MOUNTS_PATH}/${RESOLVE_FAIRLIGHT_DIR},target=/opt/resolve/Fairlight \
      --mount type=bind,source=${RESOLVE_MOUNTS_PATH}/${RESOLVE_EXTRAS_DIR},target=/opt/resolve/Extras \
+     --mount type=bind,source=${RESOLVE_MOUNTS_PATH}/${RESOLVE_IMMERSIVE},target=/opt/resolve/Immersive \
      "${MOUNT_CURSOR_THEME[@]}" \
      "${CGROUP_RULE[@]}" \
      "${MOUNT_SYSTEM_FONTS[@]}" \
