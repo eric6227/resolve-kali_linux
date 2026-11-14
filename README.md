@@ -134,8 +134,15 @@ sudo apt install -y podman fuse-overlayfs crun
 1. 将本仓库克隆到用户主文件夹 `~/resolve-kali_linux` ：
 
    ```bash
-   git clone --depth=1 https://github.com/eric6227/resolve-kali_linux.git
+   git clone --depth=1 --branch kaliLinux https://github.com/eric6227/resolve-kali_linux.git
    ```
+
+   > 如果之前已经克隆过仓库，可用以下命令切换到 `kaliLinux` 分支：
+   >
+   > ```bash
+   > git fetch origin
+   > git checkout kaliLinux
+   > ```
 
 2. 从 [Blackmagic Design](https://www.blackmagicdesign.com) 官网下载 DaVinci Resolve 的 `.zip` 安装包。
 3. 将 `.zip` 放到 `~/resolve-kali_linux/`，并重命名为如下格式（免费版可省略 `_Studio`）：
@@ -260,3 +267,7 @@ chmod -R u+rwX mounts/Immersive
 本项目为 [fat-tire/resolve](https://github.com/fat-tire/resolve) 的 Kali Linux 修改版，感谢原作者及贡献者的工作。原始仓库（含完整原理说明与故障排查）：
 
 - <https://github.com/fat-tire/resolve>
+
+## 声明
+	
+本项目修改的的代码使用 AI 生成，可能存在安全漏洞，请谨慎使用。
