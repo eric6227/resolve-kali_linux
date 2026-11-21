@@ -41,14 +41,21 @@
 ### 1. 安装 NVIDIA 驱动
 
 首先安装驱动：
+- 在英伟达官网下载驱动包，例如 `NVIDIA-Linux-x86_64-580.178.04.run`
+
+> [!WARNING]
+> 注意：必须使用高于 570 的驱动版本，否则达芬奇将无法运行。此处使用 580.178.04 版本。
+
+ 按下 `Ctrl + Alt + F3` 切换到文本模式，登录后执行以下命令：
 
 ```bash
-# 使用 Kali 官方仓库
-sudo apt update
-sudo apt install -y nvidia-driver nvidia-smi
+cd <你下载的文件夹>
+sudo ./NVIDIA-Linux-x86_64-580.178.04.run
 ```
+> [!WARNING]
+> 第一个界面会要求你选择内核版本，必须选择右边的 `MIT/GPL` 开源内核，否则重启后会黑屏
 
-安装完成后重启，并用以下命令确认：
+安装完成后重启，进入桌面后用以下命令确认：
 
 ```bash
 nvidia-smi
@@ -103,6 +110,8 @@ sudo apt update --allow-insecure-repositories
 ```bash
 sudo apt install cuda-toolkit
 ```
+> [!NOTE]
+> 直接安装的 CUDA 版本应该是 12.4 ，若发现无法调用 CUDA ，可以使用 `sudo apt remove cuda-toolkit` 移除默认版本，再运行 `sudo apt install cuda-toolkit-12-4` 安装 12.4 版本。
 
 这会安装 nvcc 编译器、CUDA 运行库及开发组件。如果提示依赖问题，先运行：
 
