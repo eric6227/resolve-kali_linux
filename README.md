@@ -231,6 +231,12 @@ chmod +x ./install-desktop.sh
 
 Resolve 容器退出后会删除容器本身，但表中的 bind mount 数据会保留。项目和导出文件请保存到容器内 `/home/resolve`（宿主机 `mounts/resolve-home`）或 `/opt/resolve/Media`（宿主机 `mounts/Media`）；项目数据库保存在 `/opt/resolve/Resolve Disk Database`（宿主机 `mounts/database`）。写到未列出的容器路径（例如 `/tmp` 或未挂载的 `/opt/resolve` 子目录）不会持久化。
 
+## 激活标识持久化
+
+为避免每次启动都获得随机的网络 MAC，`resolve.sh` 会从 `mounts/container-machine-id` 计算一个本地管理的固定 MAC，并在 bridge 网络下通过 Podman/Docker 的 `--mac-address` 使用；容器主机名也固定为 `resolve-container`。`/etc/machine-id`、`/opt/resolve/.license`、`/home/resolve` 和 `/var/BlackmagicDesign` 同样映射到宿主机持久化目录。
+
+不要删除或替换 `mounts/container-machine-id`、`mounts/license`、`mounts/resolve-home` 或 `mounts/BlackmagicDesign`。移动仓库时也要保留这些数据，或通过 `RESOLVE_MOUNTS_PATH` 指回原来的 mounts 目录。更改这些身份数据、切换到 `host`/`none` 网络、重建/升级 Resolve 或更换宿主机，都可能让 Blackmagic 的授权服务重新要求激活；这是硬件指纹校验的一部分，不能保证仅靠容器配置避免服务端重新验证。若旧激活基于之前随机生成的 MAC，首次使用固定 MAC 后可能需要再激活一次。
+
 ## 故障排查
 
 ### `Failed to create application support directories`

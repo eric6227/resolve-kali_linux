@@ -107,12 +107,27 @@ if [ ! -f "${RESOLVE_MOUNTS_PATH}/${MOUNTS_DIRNAME}/container-machine-id" ]; the
          "if needed."
 fi
 
-echo "The container's /etc/machine-id  : "`cat ${RESOLVE_MOUNTS_PATH}/mounts/container-machine-id`
+CONTAINER_MACHINE_ID=$(tr -d '[:space:]' < "${RESOLVE_MOUNTS_PATH}/${MOUNTS_DIRNAME}/container-machine-id")
+if [[ ! "${CONTAINER_MACHINE_ID}" =~ ^[[:xdigit:]]{32}$ ]]; then
+   echo "Invalid container machine-id in ${RESOLVE_MOUNTS_PATH}/${MOUNTS_DIRNAME}/container-machine-id" >&2
+   exit 1
+fi
 
-if [ -z "${RESOLVE_NETWORK}" ]; then
-   export NET_DRIVER="--network=bridge"
-else
-   export NET_DRIVER="--network=${RESOLVE_NETWORK}"
+MAC_HEX=$(printf '%s' "${CONTAINER_MACHINE_ID}" | sha256sum | cut -c1-12)
+MAC_FIRST_OCTET=$((16#${MAC_HEX:0:2}))
+MAC_FIRST_OCTET=$(((MAC_FIRST_OCTET | 2) & 254))
+printf -v RESOLVE_MAC_ADDRESS '%02x:%s:%s:%s:%s:%s' \
+   "${MAC_FIRST_OCTET}" "${MAC_HEX:2:2}" "${MAC_HEX:4:2}" \
+   "${MAC_HEX:6:2}" "${MAC_HEX:8:2}" "${MAC_HEX:10:2}"
+
+echo "The container's /etc/machine-id  : ${CONTAINER_MACHINE_ID}"
+echo "The container's stable MAC address: ${RESOLVE_MAC_ADDRESS}"
+
+RESOLVE_NETWORK_MODE="${RESOLVE_NETWORK:-bridge}"
+export NET_DRIVER="--network=${RESOLVE_NETWORK_MODE}"
+RESOLVE_IDENTITY_ARGS=(--hostname=resolve-container)
+if [[ "${RESOLVE_NETWORK_MODE}" != "host" && "${RESOLVE_NETWORK_MODE}" != "none" ]]; then
+   RESOLVE_IDENTITY_ARGS+=(--mac-address="${RESOLVE_MAC_ADDRESS}")
 fi
 
 # look for cursor theme in standard locations and set up mount if it exists.
@@ -259,6 +274,7 @@ set -x
      "${MOUNT_SYSTEM_FONTS[@]}" \
      "${MOUNTS_HIDRAW[@]}" \
      "${MOUNT_EXTRAS[@]}" \
+     "${RESOLVE_IDENTITY_ARGS[@]}" \
      "${NET_DRIVER}" \
      ${CONTAINER_RUN_ARGS} \
      --rm \
