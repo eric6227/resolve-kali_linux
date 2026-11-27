@@ -145,7 +145,7 @@ sudo apt install -y podman fuse-overlayfs crun
 1. 将本仓库克隆到用户主文件夹 `~/resolve-kali_linux` ：
 
    ```bash
-   git clone --depth=1 --branch kaliLinux https://github.com/eric6227/resolve-kali_linux.git
+   git clone --depth=1 https://github.com/eric6227/resolve-kali_linux.git
    ```
 
    > 如果之前已经克隆过仓库，可用以下命令切换到 `kaliLinux` 分支：
