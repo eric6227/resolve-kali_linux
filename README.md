@@ -1,5 +1,5 @@
 # 在 Kali Linux 上容器化运行 DaVinci Resolve [Studio]（x86_64 + NVIDIA）
-> [!NOTICE]
+> [!NOTE]
 > - 本项目基于 fat-tire/resolve 项目，针对 Kali Linux 宿主机修改。
 > - 本项目仅在 Davinci Resolve Studio 版本上测试过，免费版本可能不兼容。
 > - 请勿使用盗版 Davinci Resolve Studio 安装包。使用盗版导致的问题请勿提交 Issue。
