@@ -40,6 +40,8 @@
 
 ### 1. 安装 NVIDIA 驱动
 
+> 如果是 AMD 显卡，无需这么麻烦，直接安装 AMD 的开源驱动即可。
+
 首先安装驱动：
 - 在英伟达官网下载驱动包，例如 `NVIDIA-Linux-x86_64-580.178.04.run`
 
@@ -49,7 +51,7 @@
  按下 `Ctrl + Alt + F3` 切换到文本模式，登录后执行以下命令：
 
 ```bash
-cd <你下载的文件夹>
+cd <你的下载文件夹>
 sudo ./NVIDIA-Linux-x86_64-580.178.04.run
 ```
 > [!WARNING]
@@ -68,7 +70,7 @@ nvidia-smi
 └─$ nvidia-smi
 Sat Nov 6 7:6:7 1967       
 +-----------------------------------------------------------------------------------------+
-| NVIDIA-SMI 550.163.01             Driver Version: 550.163.01     CUDA Version: 12.4     |
+| NVIDIA-SMI 580.178.04             Driver Version: 580.178.04     CUDA Version: 13.0     |
 |-----------------------------------------+------------------------+----------------------+
 | GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
 | Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
