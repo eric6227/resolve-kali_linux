@@ -175,6 +175,14 @@ RESOLVE_BASE_CONTAINER_IMAGE=docker.io/rockylinux:8.6 ./build.sh
 
 > 构建过程会自动下载 CentOS Stream / Rocky Linux、安装依赖、安装 NVIDIA 驱动、并解包 Resolve。
 > 默认使用中科大 Rocky Linux / EPEL 镜像站；如需切换镜像，可设置 `RESOLVE_PACKAGE_MIRROR` 为提供 Rocky Linux 与 EPEL 镜像的站点根 URL（例如 `https://mirrors.ustc.edu.cn`）。
+>
+> 如需在构建时把宿主机某个目录（例如 SMB 共享的项目素材）读写挂载到容器内，可通过 `MEDIA_MNT_PATH` 指定，脚本会把该目录映射写入 `resolve.rc`，容器内挂载点为 `/home/user-media`（读写）：
+>
+> ```
+> MEDIA_MNT_PATH=/your/media/path RESOLVE_BASE_CONTAINER_IMAGE=docker.io/rockylinux:8.6 ./build.sh
+> ```
+>
+> `resolve.rc` 会在启动时被 `resolve.sh` 自动加载（也可通过快捷方式或 `RESOLVE_RC_PATH=./resolve.rc ./resolve.sh` 显式指定）。注意：读写挂载下，删除容器内该目录的文件会同时删除宿主机源文件。
 
 ### 6. 启动 DaVinci Resolve
 
@@ -194,12 +202,6 @@ Resolve 启动后，在 `Preferences` → `System` → `Memory and GPU` 中选�
 cd ~/resolve-kali_linux
 chmod +x ./install-desktop.sh
 ./install-desktop.sh
-```
-
-如需在启动时挂载宿主机某个目录到容器（例如 SMB 共享的项目素材），运行 `install-desktop.sh` 时通过 `MEDIA_MNT_PATH` 指定，脚本会自动写入 `resolve.rc`：
-
-```
-MEDIA_MNT_PATH=/your/media/path ./install-desktop.sh
 ```
 
 然后在应用菜单中搜索“DaVinci Resolve”即可找到。可添加到收藏。
@@ -223,7 +225,7 @@ MEDIA_MNT_PATH=/your/media/path ./install-desktop.sh
 | `RESOLVE_RC_PATH` | 指定一个 `resolve.rc` 脚本，用于加载额外配置 / 执行预启动命令 |
 | `RESOLVE_ENABLE_HOST_SYSTEM_FONTS` | 将宿主机系统字体挂载进容器（默认启用；设为 `0` 可禁用） |
 | `RESOLVE_BIND_SOURCES` / `RESOLVE_BIND_TARGETS` | 额外的自定义目录映射（数组，需一一对应） |
-| `MEDIA_MNT_PATH` | `install-desktop.sh` 额外挂载的目录（宿主机与容器路径一致，自动写入 `resolve.rc`） |
+| `MEDIA_MNT_PATH` | 构建时（`build.sh`）额外读写挂载到容器内的目录（挂载点为 `/home/user-media`，写入 `resolve.rc`） |
 
 ## 数据目录（bind mount）
 
@@ -278,7 +280,32 @@ sudo chown -R "$(id -u):$(id -g)" mounts/Immersive
 chmod -R u+rwX mounts/Immersive
 ```
 
-其他问题（窗口无法移动/缩放、窗口过小、拖拽不生效、网络、注册码、字体、声音等）与原版一致，请参考 [原版 README 的 Troubleshooting 章节](./README_ORIGIN.md)。
+### Resolve 没有声音
+
+本容器通过宿主机的 PulseAudio 协议 socket 输出/输入声音；Kali 上的 PipeWire 通常由 `pipewire-pulse` 提供该兼容 socket。无需把 `/dev/snd` 直接透传给容器，也不应让 Resolve 绕过宿主机音频服务器独占声卡。
+
+启动脚本会把宿主机 socket 挂载到容器专用的运行时目录，不再把宿主机的 `XDG_RUNTIME_DIR` 值直接当作容器路径；音频 socket 和 PulseAudio cookie 仅在存在时挂载。检查宿主机音频服务器和 socket（PipeWire 使用 `wpctl status`；纯 PulseAudio 可用 `pactl info`，该命令由 `pulseaudio-utils` 提供）：
+
+```bash
+wpctl status
+test -S "$XDG_RUNTIME_DIR/pulse/native" && echo "PulseAudio socket is available"
+```
+
+若音频服务器命令失败，先修复宿主机的 PulseAudio / `pipewire-pulse` 会话；若 socket 不在 `$XDG_RUNTIME_DIR/pulse/native`，请检查 `XDG_RUNTIME_DIR` 是否指向当前桌面登录用户的运行时目录。启动 Resolve 时若提示找不到 PulseAudio-compatible socket，容器仍可启动，但音频不会经 PulseAudio 路由。
+
+若日志中有 `PulseAudio: Unable to create stream: No such entity`，请在 Resolve 的 `Preferences` → `System` → `Video and Audio I/O` 中检查 `Audio I/O Engine`：选择 `ALSA` / `System Audio`（名称随版本而异），并使用默认/PulseAudio 输出设备；不要选择 `DeckLink`，除非确实使用并向容器提供了 DeckLink 音频硬件。启动脚本检测到保存的音频引擎为 DeckLink 时会提示，但不会自动覆盖用户设置。
+
+若日志出现 `IO.Audio: Failed to decode ... Failed to decode the audio samples`，问题可能在素材解码而非声卡透传。当前 Resolve 镜像自带的 `libavcodec` 明确以 `--disable-decoder='aac*'`、`--disable-parser='aac*'` 构建；因此常见 MP4 AAC 音轨无法由该 Resolve 构建解码。单独在宿主机或容器中安装 FFmpeg 不会替换 Resolve 使用的私有解码库。
+
+可在宿主机用 FFmpeg 将 AAC 音轨转换成 WAV PCM，再将 WAV 导入 Resolve：
+
+```bash
+ffmpeg -i input.mp4 -map 0:a:0 -vn -c:a pcm_s24le -ar 48000 output.wav
+```
+
+若对无法解码的素材执行“显示音乐节拍”会导致 Resolve 崩溃，先不要对原素材继续执行该操作；转换并导入 WAV 后再试。若 WAV 也触发崩溃，需要单独检查崩溃日志，不能仅凭音频解码错误断定崩溃原因。
+
+其他问题（窗口无法移动/缩放、窗口过小、拖拽不生效、网络、注册码、字体等）与原版一致，请参考 [原版 README 的 Troubleshooting 章节](./README_ORIGIN.md)。
 
 ## 许可
 

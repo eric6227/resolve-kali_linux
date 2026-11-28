@@ -111,6 +111,20 @@ else
    export BUILD_X264_ENCODER_PLUGIN=0
 fi
 
+# Optionally inject a read-write container bind mount for external media.
+if [ -n "${MEDIA_MNT_PATH}" ]; then
+   if [ ! -d "${MEDIA_MNT_PATH}" ]; then
+      echo "MEDIA_MNT_PATH '${MEDIA_MNT_PATH}' is not a directory." >&2
+      exit 1
+   fi
+   cat > "${REPO_DIR}/resolve.rc" <<EOF
+#!/bin/bash
+RESOLVE_BIND_SOURCES=("${MEDIA_MNT_PATH}")
+RESOLVE_BIND_TARGETS=("/home/user-media")
+EOF
+   chmod +x "${REPO_DIR}/resolve.rc" 2>/dev/null || true
+fi
+
 echo "Building the resolve:${TAG} image..."
 
 ${CONTAINER_BUILD} -t "resolve:${TAG}" -t "resolve" --build-arg ARCH=`uname -m` --build-arg ZIPNAME="${ZIPNAME}" --build-arg BASE_IMAGE="${BASE_IMAGE}" --build-arg NVIDIA_VERSION="${NVIDIA_VERSION}" --build-arg USER_ID="${USER_ID}" --build-arg NO_PIPEWIRE="${NO_PIPEWIRE}" --build-arg BUILD_X264_ENCODER_PLUGIN="${BUILD_X264_ENCODER_PLUGIN}" --build-arg MIRROR_BASE="${PACKAGE_MIRROR}"

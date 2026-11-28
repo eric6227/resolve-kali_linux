@@ -50,17 +50,10 @@ if ! ${CONTAINER_ENGINE} cp "${TMP_CONTAINER}:${ICON_SRC}" "${ICON_DST}"; then
     exit 1
 fi
 
-# --- Create a resolve.rc from MEDIA_MNT_PATH (host dir == container dir) ----
+# --- Create a (default empty) resolve.rc for the launcher's RESOLVE_RC_PATH ----
 RESOLVE_RC="${REPO_DIR}/resolve.rc"
 
-if [ -n "${MEDIA_MNT_PATH}" ]; then
-    cat > "${RESOLVE_RC}" <<EOF
-#!/bin/bash
-RESOLVE_BIND_SOURCES=("${MEDIA_MNT_PATH}")
-RESOLVE_BIND_TARGETS=("${MEDIA_MNT_PATH}")
-EOF
-    chmod +x "${RESOLVE_RC}" 2>/dev/null || true
-elif [ ! -f "${RESOLVE_RC}" ]; then
+if [ ! -f "${RESOLVE_RC}" ]; then
     cat > "${RESOLVE_RC}" <<'EOF'
 #!/bin/bash
 EOF

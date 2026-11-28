@@ -7,6 +7,11 @@ announce () {
    notify-send "$1"
 }
 
+# Auto-load the repo's resolve.rc (if present) when RESOLVE_RC_PATH is unset.
+if [ -z "${RESOLVE_RC_PATH+x}" ] && [ -f "${BASH_SOURCE%/*}/resolve.rc" ]; then
+   export RESOLVE_RC_PATH="${BASH_SOURCE%/*}/resolve.rc"
+fi
+
 source ${BASH_SOURCE%/*}/env-set.sh
 
 # Set up any extra target/source mounts
@@ -215,6 +220,37 @@ if [ -z ${XDG_RUNTIME_DIR+x} ]; then
    export XDG_RUNTIME_DIR=/run/user/`id -u`
 fi
 
+# Route audio through the host's per-user sound servers. Resolve uses the
+# PulseAudio protocol (also provided by pipewire-pulse); the PipeWire socket is
+# mounted separately for clients that use the native PipeWire protocol. Keep
+# the host socket source separate from the container's own runtime directory.
+AUDIO_ARGS=()
+CONTAINER_RUNTIME_DIR=/run/resolve-runtime
+HOST_PULSE_SOCKET="${XDG_RUNTIME_DIR}/pulse/native"
+CONTAINER_PULSE_SOCKET="${CONTAINER_RUNTIME_DIR}/pulse/native"
+if [[ -S "${HOST_PULSE_SOCKET}" ]]; then
+   AUDIO_ARGS+=( --env "PULSE_SERVER=unix:${CONTAINER_PULSE_SOCKET}"
+                 --mount "type=bind,source=${HOST_PULSE_SOCKET},target=${CONTAINER_PULSE_SOCKET}" )
+
+   PULSE_COOKIE_FILE="${PULSE_COOKIE:-${HOME}/.config/pulse/cookie}"
+   if [[ -f "${PULSE_COOKIE_FILE}" ]]; then
+      AUDIO_ARGS+=( --env PULSE_COOKIE=/run/pulse/cookie
+                    --mount "type=bind,source=${PULSE_COOKIE_FILE},target=/run/pulse/cookie,readonly" )
+   fi
+else
+   echo "Warning: no PulseAudio-compatible socket at ${HOST_PULSE_SOCKET}; Resolve audio may be unavailable." >&2
+fi
+
+HOST_PIPEWIRE_SOCKET="${XDG_RUNTIME_DIR}/pipewire-0"
+if [[ -S "${HOST_PIPEWIRE_SOCKET}" ]]; then
+   AUDIO_ARGS+=( --mount "type=bind,source=${HOST_PIPEWIRE_SOCKET},target=${CONTAINER_RUNTIME_DIR}/pipewire-0" )
+fi
+
+RESOLVE_AUDIO_CONFIG="${RESOLVE_MOUNTS_PATH}/${RESOLVE_HOMEDIR}/.local/share/DaVinciResolve/configs/config.dat"
+if grep -Fxq 'Local.Audio.Type = DeckLink' "${RESOLVE_AUDIO_CONFIG}" 2>/dev/null; then
+   echo "Warning: Resolve is configured for DeckLink audio. If no DeckLink audio device is available in the container, select ALSA/System Audio in Preferences > System > Video and Audio I/O." >&2
+fi
+
 # quick sanity check.
 
 if [ -z "${XAUTHORITY}" ]; then
@@ -236,10 +272,8 @@ set -x
      --security-opt=no-new-privileges \
      --env DISPLAY=$DISPLAY \
      --env XAUTHORITY=/tmp/.host_Xauthority \
-     --env PULSE_SERVER=unix:${XDG_RUNTIME_DIR}/pulse/native \
-     --env PULSE_COOKIE=/run/pulse/cookie \
      --env QT_AUTO_SCREEN_SCALE_FACTOR=1 \
-     --env XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR} \
+     --env XDG_RUNTIME_DIR=${CONTAINER_RUNTIME_DIR} \
      --env RESOLVE_SCRIPT_LIB="/opt/resolve/libs/Fusion/fusionscript.so" \
      --env RESOLVE_SCRIPT_API="/opt/resolve/Developer/Scripting" \
      --env PYTHONPATH="/opt/resolve/Developer/Scripting/Modules/" \
@@ -251,13 +285,10 @@ set -x
      --device /dev/nvidia-uvm \
      --device /dev/nvidia-uvm-tools \
      --device /dev/bus/usb \
-     --mount type=bind,source=${XDG_RUNTIME_DIR}/pipewire-0,target=${XDG_RUNTIME_DIR}/pipewire-0 \
      --mount type=bind,source=$XAUTHORITY,target=/tmp/.host_Xauthority,readonly \
      --mount type=bind,source=/etc/localtime,target=/etc/localtime,readonly \
      --mount type=bind,source=/tmp/.X11-unix,target=/tmp/.X11-unix \
-     --mount type=bind,source=${XDG_RUNTIME_DIR}/pulse/native,target=${XDG_RUNTIME_DIR}/pulse/native \
      --mount type=bind,source=/usr/share/icons,target=/usr/share/icons,readonly \
-     --mount type=bind,source=${HOME}/.config/pulse/cookie,target=/run/pulse/cookie \
      --mount type=bind,source=${HOME}/.local/share/fonts,target=/usr/share/fonts,readonly \
      --mount type=bind,source=${RESOLVE_MOUNTS_PATH}/${MOUNTS_DIRNAME}/container-machine-id,target=/etc/machine-id \
      --mount type=bind,source=${RESOLVE_MOUNTS_PATH}/${RESOLVE_HOMEDIR},target=/home/resolve \
@@ -274,6 +305,7 @@ set -x
      "${MOUNT_CURSOR_THEME[@]}" \
      "${CGROUP_RULE[@]}" \
      "${MOUNT_SYSTEM_FONTS[@]}" \
+     "${AUDIO_ARGS[@]}" \
      "${MOUNTS_HIDRAW[@]}" \
      "${MOUNT_EXTRAS[@]}" \
      "${RESOLVE_IDENTITY_ARGS[@]}" \

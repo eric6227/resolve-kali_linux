@@ -79,7 +79,8 @@ ARG USER=resolve
 ARG USER_ID=1000
 
 RUN useradd -u "${USER_ID}" -U --create-home -r $USER \
-    && usermod -L root
+    && usermod -L root \
+    && install -d -o "$USER" -g "$USER" -m 0700 /run/resolve-runtime
 
 # now install davinci resolve .zip
 
@@ -130,3 +131,5 @@ RUN if [[ "${BUILD_X264_ENCODER_PLUGIN}" == 1 ]] ; then \
 CMD __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia __VK_LAYER_NV_optimus=NVIDIA_only /opt/resolve/bin/resolve
 
 USER resolve:resolve
+
+ENV XDG_RUNTIME_DIR=/run/resolve-runtime
