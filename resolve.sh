@@ -232,6 +232,8 @@ set -x
 
 "${CONTAINER_ENGINE}" run -it \
      --user resolve:resolve \
+     --cap-drop=ALL \
+     --security-opt=no-new-privileges \
      --env DISPLAY=$DISPLAY \
      --env XAUTHORITY=/tmp/.host_Xauthority \
      --env PULSE_SERVER=unix:${XDG_RUNTIME_DIR}/pulse/native \

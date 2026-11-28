@@ -1,9 +1,9 @@
 # 在 Kali Linux 上容器化运行 DaVinci Resolve [Studio]（x86_64 + NVIDIA）
 > [!NOTE]
 > - 本项目基于 fat-tire/resolve 项目，针对 Kali Linux 宿主机修改。
-> - 本项目仅在 Davinci Resolve Studio 版本上测试过，免费版本可能不兼容。
+> - 本项目已经在 Davinci Resolve Studio 版本和免费版 Davinci Resolve 上测试通过，软件功能正常。
+> - 本项目仅在 nvidia 显卡上测试通过，AMD 显卡未测试，但肯定不会不兼容（Nvidia, F**K you!）。
 > - 请勿使用盗版 Davinci Resolve Studio 安装包。使用盗版导致的问题请勿提交 Issue。
-> - 由于本人（eric6227）多次测试触发激活次数限制，当前版本尚未进行软件功能的测试。
 
 这是一个基于 [fat-tire/resolve](https://github.com/fat-tire/resolve) 项目、针对 **Kali Linux** 宿主机修改的版本。
 
@@ -17,24 +17,24 @@
 
 [DaVinci Resolve](https://www.blackmagicdesign.com/products/davinciresolve/) 是 Blackmagic Design 推出的免费（及付费 Studio 版）非线性剪辑软件。它最初是为（现已停止维护的）CentOS 发行版设计的，在其他发行版上直接安装往往会有库兼容性问题。
 
-本项目的思路是：**宿主机用 Kali Linux，通过容器（Podman / Docker）在 CentOS Stream / Rocky Linux 的 guest 环境中运行 DaVinci Resolve**，这样它就能运行在它“期望”的原生环境里，同时你的工程、素材、字体、配置等数据都通过 bind mount 保存在宿主机上，容器本身保持“一次性”（ephemeral）。
+本项目的思路是：**宿主机用 Kali Linux，通过容器（Podman / Docker，默认 podman）在 CentOS Stream / Rocky Linux 的 guest 环境中运行 DaVinci Resolve**，这样它就能运行在它“期望”的原生环境里，同时你的工程、素材、字体、配置等数据都通过 bind mount 保存在宿主机上，容器本身保持“一次性”（ephemeral）。
 
 ## 与 Kali Linux 相关的注意事项
 
 - Kali 是 Debian 系发行版，安装容器工具链使用 `apt`。
 - Kali 默认使用 root 用户、默认 shell 为 Zsh；本脚本在普通用户下运行即可，无需 root。
 - NVIDIA 驱动的安装方式与 Ubuntu 不同（Kali 没有“软件与更新 → 附加驱动”界面），需要通过 Kali 官方仓库或 NVIDIA 官方 `.run` 包安装，详见下文步骤。
-- 图形会话建议使用 X11（Xorg）。Kali 默认桌面通常是 Xfce / GNOME，理论上 Wayland 也能工作，但 X11 兼容性最稳。
+- 图形会话建议使用 X11（Xorg，默认的图形会话类型）。Kali 默认桌面通常是 Xfce（推荐选择的，自动安装默认的） / GNOME，理论上 Wayland 也能工作，但 X11 兼容性最稳。
 - 中文字形使用宿主机字体；若系统没有 CJK 字体，可安装 `fonts-noto-cjk`。
 
 ## 运行环境要求
 
 - x86_64 主机，内存建议 16GB 以上（Blackmagic Design 官方对 Studio 版建议 32GB）。
-- 一块较新的 NVIDIA GPU（显存建议 4GB 以上）。
-- 已安装 Kali Linux（建议使用普通用户而非 root 运行）。
-- （可选）DaVinci Resolve Studio 的 USB 加密狗（Dongle）。
-- （可选）DaVinci Resolve Speed Editor（仅 USB；蓝牙支持见原版 README）。
-- （可选）激活码（Registration Code）——**未经充分测试，风险自负**；默认 bridge 网络允许容器访问互联网。
+- 一块较新的 NVIDIA GPU（本项目使用 NVIDIA GPU 测试，但是如果不希望折腾驱动，建议使用 AMD GPU。显存建议 8GB 以上）。
+- 已安装 Kali Linux（绝对建议使用普通用户而非 root 运行）。
+- （可选）DaVinci Resolve Studio 的 USB 加密狗（Dongle。未测试）。
+- （可选）DaVinci Resolve Speed Editor（仅 USB；蓝牙支持见原版 README。未测试）。
+- （可选）激活码（Registration Code）支持。默认 bridge 网络允许容器访问互联网。
 
 ## 安装步骤（Kali Linux）
 
@@ -147,16 +147,10 @@ sudo apt install -y podman fuse-overlayfs crun
    ```bash
    git clone --depth=1 https://github.com/eric6227/resolve-kali_linux.git
    ```
-
-   > 如果之前已经克隆过仓库，可用以下命令切换到 `kaliLinux` 分支：
-   >
-   > ```bash
-   > git fetch origin
-   > git checkout kaliLinux
-   > ```
+   > 新版本已经把 `kaliLinux` 分支合并到 `main` 分支，无需切换分支。
 
 2. 从 [Blackmagic Design](https://www.blackmagicdesign.com) 官网下载 DaVinci Resolve 的 `.zip` 安装包。
-3. 将 `.zip` 放到 `~/resolve-kali_linux/`，并重命名为如下格式（免费版可省略 `_Studio`）：
+3. 将 `.zip` 放到 `~/resolve-kali_linux/`，命名默认为如下格式。若不一样，需要重命名（免费版可省略 `_Studio`）：
 
    ```
    DaVinci_Resolve_Studio_<版本号>_Linux.zip
@@ -180,6 +174,7 @@ RESOLVE_BASE_CONTAINER_IMAGE=docker.io/rockylinux:8.6 ./build.sh
 ```
 
 > 构建过程会自动下载 CentOS Stream / Rocky Linux、安装依赖、安装 NVIDIA 驱动、并解包 Resolve。
+> 默认使用中科大 Rocky Linux / EPEL 镜像站；如需切换镜像，可设置 `RESOLVE_PACKAGE_MIRROR` 为提供 Rocky Linux 与 EPEL 镜像的站点根 URL（例如 `https://mirrors.ustc.edu.cn`）。
 
 ### 6. 启动 DaVinci Resolve
 
@@ -201,6 +196,12 @@ chmod +x ./install-desktop.sh
 ./install-desktop.sh
 ```
 
+如需在启动时挂载宿主机某个目录到容器（例如 SMB 共享的项目素材），运行 `install-desktop.sh` 时通过 `MEDIA_MNT_PATH` 指定，脚本会自动写入 `resolve.rc`：
+
+```
+MEDIA_MNT_PATH=/your/media/path ./install-desktop.sh
+```
+
 然后在应用菜单中搜索“DaVinci Resolve”即可找到。可添加到收藏。
 
 ## 常用配置（环境变量）
@@ -215,12 +216,14 @@ chmod +x ./install-desktop.sh
 | `RESOLVE_NVIDIA_VERSION` | 指定容器内 NVIDIA 驱动版本（默认跟随宿主机） |
 | `RESOLVE_NO_PIPEWIRE` | 是否禁用 PipeWire 音频（**Kali Linux 必须禁用**） |
 | `RESOLVE_BASE_CONTAINER_IMAGE` | 覆盖构建用的基础镜像 |
+| `RESOLVE_PACKAGE_MIRROR` | 构建时使用的 Rocky Linux / EPEL 镜像站根 URL（默认 `https://mirrors.ustc.edu.cn`） |
 | `RESOLVE_BUILD_X264_ENCODER_PLUGIN` | 构建 x264 编码器插件 |
 | `RESOLVE_MOUNTS_PATH` | 覆盖 bind mount 根路径 |
 | `RESOLVE_CONTAINER_ENGINE` | 指定容器引擎（podman / docker） |
 | `RESOLVE_RC_PATH` | 指定一个 `resolve.rc` 脚本，用于加载额外配置 / 执行预启动命令 |
 | `RESOLVE_ENABLE_HOST_SYSTEM_FONTS` | 将宿主机系统字体挂载进容器（默认启用；设为 `0` 可禁用） |
 | `RESOLVE_BIND_SOURCES` / `RESOLVE_BIND_TARGETS` | 额外的自定义目录映射（数组，需一一对应） |
+| `MEDIA_MNT_PATH` | `install-desktop.sh` 额外挂载的目录（宿主机与容器路径一致，自动写入 `resolve.rc`） |
 
 ## 数据目录（bind mount）
 
@@ -242,11 +245,13 @@ chmod +x ./install-desktop.sh
 
 Resolve 容器退出后会删除容器本身，但表中的 bind mount 数据会保留。项目和导出文件请保存到容器内 `/home/resolve`（宿主机 `mounts/resolve-home`）或 `/opt/resolve/Media`（宿主机 `mounts/Media`）；项目数据库保存在 `/opt/resolve/Resolve Disk Database`（宿主机 `mounts/database`）。写到未列出的容器路径（例如 `/tmp` 或未挂载的 `/opt/resolve` 子目录）不会持久化。
 
-## 激活标识持久化
+## 容器身份与权限
 
-为避免每次启动都获得随机的网络 MAC，`resolve.sh` 会从 `mounts/container-machine-id` 计算一个本地管理的固定 MAC，并在 bridge 网络下通过 Podman/Docker 的 `--mac-address` 使用；容器主机名也固定为 `resolve-container`。`/etc/machine-id`、`/opt/resolve/.license`、`/home/resolve` 和 `/var/BlackmagicDesign` 同样映射到宿主机持久化目录。
+容器启动时会使用固定主机名 `resolve-container`，并从 `mounts/container-machine-id` 派生固定 MAC（bridge 等独立网络下）。`/etc/machine-id`、`/opt/resolve/.license`、`/home/resolve` 和 `/var/BlackmagicDesign` 映射到宿主机持久化目录，因此这些容器内身份/状态在保留 mounts 数据且配置不变时可跨启动保留。
 
-不要删除或替换 `mounts/container-machine-id`、`mounts/license`、`mounts/resolve-home` 或 `mounts/BlackmagicDesign`。移动仓库时也要保留这些数据，或通过 `RESOLVE_MOUNTS_PATH` 指回原来的 mounts 目录。更改这些身份数据、切换到 `host`/`none` 网络、重建/升级 Resolve 或更换宿主机，都可能让 Blackmagic 的授权服务重新要求激活；这是硬件指纹校验的一部分，不能保证仅靠容器配置避免服务端重新验证。若旧激活基于之前随机生成的 MAC，首次使用固定 MAC 后可能需要再激活一次。
+不要删除或替换 `mounts/container-machine-id`、`mounts/license`、`mounts/resolve-home` 或 `mounts/BlackmagicDesign`。移动仓库时也要保留这些数据，或通过 `RESOLVE_MOUNTS_PATH` 指回原来的 mounts 目录。此配置只固定上述容器身份和持久化状态，不会、也不能保证所有可识别特征（例如 GPU、宿主机硬件、网络模式或软件版本）不变。Blackmagic 的授权校验可能依据其他信息或服务端策略要求重新激活；请按软件许可条款使用，不能依赖容器配置绕过授权校验。若旧激活基于之前随机生成的 MAC，首次使用固定 MAC 后可能需要重新激活。
+
+镜像默认以非 root 的 `resolve` 用户运行，不安装或授予 sudo 权限；启动时也会移除全部 Linux capabilities 并启用 `no-new-privileges`。容器镜像基础系统仍保留已锁定的 root 账户供系统构建需要，但 Resolve 进程不会以 root 身份启动。Podman 继续使用 rootless `keep-id` 模式。
 
 ## 故障排查
 

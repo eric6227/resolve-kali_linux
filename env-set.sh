@@ -4,6 +4,14 @@
 
 REPO_DIR=$(dirname $(realpath -s $0))
 
+# Some shells/desktops leave XDG_RUNTIME_DIR unset or set it to a relative or
+# stale path (e.g. "tmp/aha"). A wrong value breaks podman itself as well as the
+# PulseAudio/PipeWire socket bind-mounts that Resolve uses for audio. Normalize
+# it to the standard per-user runtime directory before doing anything else.
+if [ -z "${XDG_RUNTIME_DIR+x}" ] || [ "${XDG_RUNTIME_DIR#/}" = "${XDG_RUNTIME_DIR}" ] || [ ! -d "${XDG_RUNTIME_DIR}" ]; then
+   export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+fi
+
 # if RESOLVE_RC_PATH is set, source it to pull in additional ENV settings, run pre-flight commands, etc.
 
 if ! [ -z ${RESOLVE_RC_PATH} ]; then
@@ -50,4 +58,3 @@ fi
 if [ ! -z ${RESOLVE_ZIP} ]; then
    echo "The Resolve zip file location (RESOLVE_ZIP) was manually set to : ${RESOLVE_ZIP}"
 fi
-

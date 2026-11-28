@@ -19,6 +19,7 @@ ARG NVIDIA_VERSION=575.64.03
 ARG NO_PIPEWIRE=1
 ARG ZIPNAME
 ARG BUILD_X264_ENCODER_PLUGIN=0
+ARG MIRROR_BASE=https://mirrors.ustc.edu.cn
 
 # get x11 + nvidia + sound + other dependency stuff set up the machine ID
 #     libcurl-devel added to support fusion reactor installer
@@ -27,14 +28,29 @@ ARG BUILD_X264_ENCODER_PLUGIN=0
 # Future: when bluetooth works with speed editor in Linux, add these packages:  bluez avahi dbus-x11 nss-mdns
 # EXTRA_PACKS are packages that may not be available but should be installed if they are.
 ARG EXTRA_PACKS=""
+RUN for repo in /etc/yum.repos.d/Rocky-*.repo; do \
+       [ -f "${repo}" ] || continue; \
+       sed -i \
+           -e 's|^mirrorlist=|#mirrorlist=|' \
+           -e 's|^#baseurl=http://dl.rockylinux.org/\$contentdir/\$releasever/|baseurl=MIRROR_BASE/rocky/8/|' \
+           -e "s|MIRROR_BASE|${MIRROR_BASE}|" \
+           "${repo}"; \
+    done
+
 RUN if [[ `dnf list libxcrypt-compat` == *libxcrypt-compat* ]]; then export EXTRA_PACKS="${EXTRA_PACKS} libxcrypt-compat" ; fi \
        && if [[ `dnf list compat-openssl11` == *compat-openssl11* ]]; then export EXTRA_PACKS="${EXTRA_PACKS} compat-openssl11" ; fi \
        && if [[ `dnf list compat-openssl10` == *compat-openssl10* ]]; then export EXTRA_PACKS="${EXTRA_PACKS} compat-openssl10"; fi \
        && export NVIDIA_VERSION=$NVIDIA_VERSION \
        && export ARCH=$ARCH \
        && dnf update --refresh -y \
-       && dnf install dnf-plugins-core xorg-x11-server-Xorg libXcursor libXt unzip alsa-lib librsvg2 libGLU sudo module-init-tools libgomp xcb-util xcb-util-keysyms xcb-util-wm ocl-icd libxkbcommon-x11 python312 mesa-dri-drivers -y \
-       && dnf install epel-release -y && dnf install xcb-util-cursor libglvnd-devel -y \
+       && dnf install dnf-plugins-core xorg-x11-server-Xorg libXcursor libXt unzip alsa-lib librsvg2 libGLU module-init-tools libgomp xcb-util xcb-util-keysyms xcb-util-wm ocl-icd libxkbcommon-x11 python312 mesa-dri-drivers -y \
+       && dnf install epel-release -y \
+       && sed -i \
+           -e '/^\[epel\]/,/^\[/ s|^metalink=|#metalink=|' \
+           -e '/^\[epel\]/,/^\[/ s|^#baseurl=https://download.example/pub/epel/.*|baseurl=MIRROR_BASE/epel/8/Everything/$basearch/|' \
+           -e "s|MIRROR_BASE|${MIRROR_BASE}|" \
+           /etc/yum.repos.d/epel.repo \
+       && dnf install xcb-util-cursor libglvnd-devel -y \
        && if [ ! -z "${EXTRA_PACKS}" ]; then dnf install ${EXTRA_PACKS} -y ; fi \
        && if [[ "${NO_PIPEWIRE}" == 0 ]] ; then \
              dnf install libXi libXtst procps dbus-x11 libSM pipewire libcurl-devel \
@@ -62,10 +78,8 @@ RUN if [[ `dnf list libxcrypt-compat` == *libxcrypt-compat* ]]; then export EXTR
 ARG USER=resolve
 ARG USER_ID=1000
 
-RUN useradd -u "${USER_ID}" -U --create-home -r $USER && echo "$USER:$USER" | chpasswd && usermod -aG wheel $USER
-
-# To disallow the resolve user to do things as root, comment out this line
-RUN echo "${USER} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-$USER
+RUN useradd -u "${USER_ID}" -U --create-home -r $USER \
+    && usermod -L root
 
 # now install davinci resolve .zip
 
@@ -114,3 +128,5 @@ RUN if [[ "${BUILD_X264_ENCODER_PLUGIN}" == 1 ]] ; then \
        && rm -rf /tmp/x264*
 
 CMD __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia __VK_LAYER_NV_optimus=NVIDIA_only /opt/resolve/bin/resolve
+
+USER resolve:resolve

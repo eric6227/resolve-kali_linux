@@ -50,12 +50,29 @@ if ! ${CONTAINER_ENGINE} cp "${TMP_CONTAINER}:${ICON_SRC}" "${ICON_DST}"; then
     exit 1
 fi
 
+# --- Create a resolve.rc from MEDIA_MNT_PATH (host dir == container dir) ----
+RESOLVE_RC="${REPO_DIR}/resolve.rc"
+
+if [ -n "${MEDIA_MNT_PATH}" ]; then
+    cat > "${RESOLVE_RC}" <<EOF
+#!/bin/bash
+RESOLVE_BIND_SOURCES=("${MEDIA_MNT_PATH}")
+RESOLVE_BIND_TARGETS=("${MEDIA_MNT_PATH}")
+EOF
+    chmod +x "${RESOLVE_RC}" 2>/dev/null || true
+elif [ ! -f "${RESOLVE_RC}" ]; then
+    cat > "${RESOLVE_RC}" <<'EOF'
+#!/bin/bash
+EOF
+    chmod +x "${RESOLVE_RC}" 2>/dev/null || true
+fi
+
 # --- 2 & 3. Generate and install the .desktop file --------------------------
 cat > "${DESKTOP_DST}" <<EOF
 [Desktop Entry]
 Name=DaVinci Resolve
 Icon=DV_Resolve.png
-Exec=bash -c "cd ${REPO_DIR} && ./resolve.sh"
+Exec=bash -c "cd ${REPO_DIR} && RESOLVE_RC_PATH=${RESOLVE_RC} ./resolve.sh"
 Type=Application
 Terminal=false
 StartupNotify=true
@@ -66,4 +83,5 @@ chmod +x "${DESKTOP_DST}" 2>/dev/null || true
 echo "Done."
 echo "  Icon     : ${ICON_DST}"
 echo "  Launcher : ${DESKTOP_DST}"
-echo "  Exec     : bash -c \"cd ${REPO_DIR} && ./resolve.sh\""
+echo "  Mounts   : ${RESOLVE_RC}"
+echo "  Exec     : bash -c \"cd ${REPO_DIR} && RESOLVE_RC_PATH=${RESOLVE_RC} ./resolve.sh\""
